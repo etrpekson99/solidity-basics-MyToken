@@ -84,7 +84,7 @@ contract MyToken {
         _allowances[owner][spender] = amount;
     }
 
-    function transfer(address beneficiary, uint256 amount) public returns (bool) {
+    function transfer(address beneficiary, uint256 amount) public virtual returns (bool) {
         require(beneficiary != address(0), "Beneficiary address cannot be zero.");
         require(_balances[msg.sender] >= amount, "Send does not have enough balance.");
         // 0- 255 only (integer overflow)
@@ -106,7 +106,7 @@ contract MyToken {
         return true;
     }
 
-    function transferFrom(address sender, address beneficiary, uint256 amount) public returns (bool) {
+    function transferFrom(address sender, address beneficiary, uint256 amount) public virtual returns (bool) {
         require(sender != address(0), "Beneficiary address cannot be zero.");
         require(beneficiary != address(0), "Beneficiary address cannot be zero.");
         require(amount <= _allowances[sender][msg.sender], "Allowance is not enough");
@@ -125,6 +125,10 @@ contract MyToken {
 }
 
 contract MyTokenAdvanced is MyToken, Administrable {
+    mapping(address => bool) private _frozenAccounts;
+
+    event FrozenFund(address indexed target, bool frozen);
+
     constructor(uint256 initialSupply, string memory tokenName, string memory tokenSymbol, uint8 decimalUnits, address newAdmin) public MyToken(0, tokenName, tokenSymbol, decimalUnits) {
             if(newAdmin != address(0) && newAdmin != msg.sender)
                 transferAdminship(newAdmin);
@@ -140,5 +144,44 @@ contract MyTokenAdvanced is MyToken, Administrable {
         setBalance(target, balanceOf(target) + mintedAmount);
         setTotalSupply(totalSupply() + mintedAmount);
         emit Transfer(address(0), target, mintedAmount);
+    }
+
+    function freezeAccount(address target, bool freeze) public onlyAdmin {
+        _frozenAccounts[target] = freeze;
+        emit FrozenFund(target, freeze);
+    }
+
+    function transfer(address beneficiary, uint256 amount) public virtual override returns (bool) {
+        require(beneficiary != address(0), "Beneficiary address cannot be zero.");
+        require(balanceOf(msg.sender) >= amount, "Send does not have enough balance.");
+        // 0- 255 only (integer overflow)
+        require(balanceOf(beneficiary) + amount > balanceOf(beneficiary), "Addition overflow");
+        require(_frozenAccounts[msg.sender], "Sender's account if frozen");
+
+        setBalance(msg.sender, balanceOf(msg.sender) - amount);
+        setBalance(beneficiary, balanceOf(beneficiary) + amount);
+
+        // emit an event inside function that will generate a log message
+        emit Transfer(msg.sender, beneficiary, amount);
+
+        return true;
+    }
+
+    function transferFrom(address sender, address beneficiary, uint256 amount) public virtual override returns (bool) {
+        require(sender != address(0), "Beneficiary address cannot be zero.");
+        require(beneficiary != address(0), "Beneficiary address cannot be zero.");
+        require(amount <= allowance(sender, msg.sender), "Allowance is not enough");
+        require(balanceOf(sender) >= amount, "Send does not have enough balance.");
+        // 0- 255 only (integer overflow)
+        require(balanceOf(beneficiary) + amount > balanceOf(beneficiary), "Addition overflow");
+        require(_frozenAccounts[sender], "Sender's account if frozen");
+
+        setBalance(sender, balanceOf(sender) - amount);
+        setAllowance(sender, msg.sender, allowance(sender, msg.sender) - amount);
+        setBalance(beneficiary, balanceOf(beneficiary) + amount);
+
+        emit Transfer(sender, beneficiary, amount);
+
+        return true;
     }
 }
