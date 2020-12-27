@@ -176,7 +176,7 @@ contract MyTokenAdvanced is MyToken, Administrable {
         require(balanceOf(msg.sender) >= amount, "Send does not have enough balance.");
         // 0- 255 only (integer overflow)
         require(balanceOf(beneficiary) + amount > balanceOf(beneficiary), "Addition overflow");
-        require(_frozenAccounts[msg.sender], "Sender's account if frozen");
+        require(!_frozenAccounts[msg.sender], "Sender's account is frozen");
 
         setBalance(msg.sender, balanceOf(msg.sender) - amount);
         setBalance(beneficiary, balanceOf(beneficiary) + amount);
@@ -194,7 +194,7 @@ contract MyTokenAdvanced is MyToken, Administrable {
         require(balanceOf(sender) >= amount, "Send does not have enough balance.");
         // 0- 255 only (integer overflow)
         require(balanceOf(beneficiary) + amount > balanceOf(beneficiary), "Addition overflow");
-        require(_frozenAccounts[sender], "Sender's account if frozen");
+        require(!_frozenAccounts[sender], "Sender's account is frozen");
 
         setBalance(sender, balanceOf(sender) - amount);
         setAllowance(sender, msg.sender, allowance(sender, msg.sender) - amount);
