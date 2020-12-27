@@ -126,6 +126,10 @@ contract MyToken {
 
 contract MyTokenAdvanced is MyToken, Administrable {
     mapping(address => bool) private _frozenAccounts;
+    mapping(address => uint) private _pendingWithdrawals;
+
+    uint256 private _sellPrice = 1;
+    uint256 private _buyPrice = 1;
 
     event FrozenFund(address indexed target, bool frozen);
 
@@ -135,6 +139,22 @@ contract MyTokenAdvanced is MyToken, Administrable {
 
             setBalance(admin(), initialSupply);
             setTotalSupply(initialSupply);
+    }
+
+    function sellPrice() public view returns (uint256) {
+        return _sellPrice;
+    }
+
+    function buyPrice() public view returns (uint256) {
+        return _buyPrice;
+    }
+
+    function setPrices(uint256 newSellPrice, uint256 newBuyPrice) public onlyAdmin {
+        require(newSellPrice > 0, "Sell price cannot be zero");
+        require(newBuyPrice > 0, "Buy price cannot be zero");
+
+        _sellPrice = newSellPrice;
+        _buyPrice = newBuyPrice;
     }
 
     function mintToken(address target, uint256 mintedAmount) public onlyAdmin {
@@ -183,5 +203,40 @@ contract MyTokenAdvanced is MyToken, Administrable {
         emit Transfer(sender, beneficiary, amount);
 
         return true;
+    }
+
+    // payable = functions that involve ether
+    function buy() public payable {
+        uint256 amount = (msg.value/(1 ether)) / _buyPrice;
+        address thisContractAddress = address(this);
+
+        require(balanceOf(thisContractAddress) >= amount, "Contract does not have enough tokens.");
+        require(balanceOf(msg.sender) + amount > balanceOf(msg.sender), "Addition Overflow");
+
+        setBalance(thisContractAddress, balanceOf(thisContractAddress) - amount);
+        setBalance(msg.sender, balanceOf(msg.sender) + amount);
+
+        emit Transfer(thisContractAddress, msg.sender, amount);
+    }
+
+    function sell(uint256 amount) public {
+        address thisContractAddress = address(this);
+
+        require(balanceOf(msg.sender) >= amount, "Seller does not have enough tokens");
+        require(balanceOf(thisContractAddress) + amount > balanceOf(thisContractAddress), "Addition Overflow");
+
+        setBalance(msg.sender, balanceOf(msg.sender) - amount);
+        setBalance(thisContractAddress, balanceOf(thisContractAddress) + amount);
+
+        uint256 saleProceed = amount * _sellPrice * (1 ether);
+        _pendingWithdrawals[msg.sender] += saleProceed;
+
+        emit Transfer(msg.sender, thisContractAddress, amount);
+    }
+
+    function withdraw() public {
+        uint amount = _pendingWithdrawals[msg.sender];
+        _pendingWithdrawals[msg.sender] = 0;
+        msg.sender.transfer(amount);
     }
 }
