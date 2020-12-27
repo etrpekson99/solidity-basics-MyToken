@@ -2,6 +2,31 @@
 
 pragma solidity ^0.7.4;
 
+abstract contract Administrable {
+    address private _admin;
+
+    event AdminshipTransferred(address indexed currentAdmin, address indexed newAdmin);
+
+    constructor() internal {
+        _admin = msg.sender;
+        emit AdminshipTransferred(address(0), _admin);
+    }
+
+    function admin() public view returns (address) {
+        return _admin;
+    }
+
+    modifier onlyAdmin() {
+        require(msg.sender == _admin, "Only admin can perform this action");
+        _;
+    }
+
+    function transferAdminship(address newAdmin) public onlyAdmin {
+        emit AdminshipTransferred(_admin, newAdmin);
+        _admin = newAdmin;
+    }
+}
+
 
 contract MyToken {
     mapping (address => uint256) private _balances;
@@ -96,5 +121,15 @@ contract MyToken {
         emit Transfer(sender, beneficiary, amount);
 
         return true;
+    }
+}
+
+contract MyTokenAdvanced is MyToken, Administrable {
+    constructor(uint256 initialSupply, string memory tokenName, string memory tokenSymbol, uint8 decimalUnits, address newAdmin) public MyToken(0, tokenName, tokenSymbol, decimalUnits) {
+            if(newAdmin != address(0) && newAdmin != msg.sender)
+                transferAdminship(newAdmin);
+
+            setBalance(admin(), initialSupply);
+            setTotalSupply(initialSupply);
     }
 }
