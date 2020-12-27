@@ -132,4 +132,13 @@ contract MyTokenAdvanced is MyToken, Administrable {
             setBalance(admin(), initialSupply);
             setTotalSupply(initialSupply);
     }
+
+    function mintToken(address target, uint256 mintedAmount) public onlyAdmin {
+        require(balanceOf(target) + mintedAmount > balanceOf(target), "Addition Overflow");
+        require(totalSupply() + mintedAmount > totalSupply(), "Addition Overflow");
+
+        setBalance(target, balanceOf(target) + mintedAmount);
+        setTotalSupply(totalSupply() + mintedAmount);
+        emit Transfer(address(0), target, mintedAmount);
+    }
 }
